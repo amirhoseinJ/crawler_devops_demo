@@ -13,7 +13,7 @@ DEFAULT_URL = os.getenv("CRAWL_URL", "https://www.varzesh3.com/")
 DEFAULT_TARGET = os.getenv("CRAWL_TARGET", "فوتبال")
 DELAY_SECONDS = float(os.getenv("CRAWL_DELAY_SECONDS", "5"))
 
-# Heartbeat key to detect a stopped scheduler
+# Heartbeat 
 K_LAST_ENQUEUE_TS =  "crawler:last_enqueue_ts"
 
 def main():

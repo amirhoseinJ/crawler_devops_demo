@@ -16,6 +16,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 POSTGRES_DSN = os.getenv("POSTGRES_DSN", "postgresql://postgres:postgres@localhost:5432/postgres")
 
 QUEUE_KEY =  "crawl_queue"
+
 # counters
 K_FETCH = "crawler:fetch_total"
 K_OK  = "crawler:success_total"
@@ -23,9 +24,9 @@ K_ERR  = "crawler:error_total"
 
 
 # health
-K_LAST_STATUS = "crawler:last_status"  # "ok" | "error"
-K_LAST_TS     =  "crawler:last_ts"        # ISO-8601
-K_LAST_ERROR  =  "crawler:last_error"   # last error message (optional)
+K_LAST_STATUS = "crawler:last_status" 
+K_LAST_TS     =  "crawler:last_ts"      
+K_LAST_ERROR  =  "crawler:last_error"  
 
 
 
@@ -72,7 +73,6 @@ def parse_visible_text(html: str) -> str:
 def crawl_and_count(url: str, target: str) -> int:
     resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
-    # Prefer declared encoding, or fall back to apparent if available
     resp.encoding = resp.apparent_encoding or resp.encoding or "utf-8"
     text = parse_visible_text(resp.text)
     return normalize(text).count(normalize(target))
@@ -85,8 +85,7 @@ def main():
         print(f"[worker] connected to Postgres and Redis. Waiting on queue: {QUEUE_KEY}")
 
         while True:
-            # Block until a job arrives: job payload is JSON: {"url": "...", "target": "..."}
-            _, raw = r.blpop(QUEUE_KEY, timeout=0)  # 0 = block forever
+            _, raw = r.blpop(QUEUE_KEY, timeout=0)  # block 
             ts = datetime.now(timezone.utc)
 
             try:
@@ -94,7 +93,6 @@ def main():
                 url = job["url"]
                 target = job.get("target", "")
             except Exception as e:
-                # Malformed job -> count as error, record row with count NULL
                 r.incr(K_FETCH)
                 r.incr(K_ERR)
                 fetch_total   = int(r.get(K_FETCH) or 0)
@@ -116,7 +114,6 @@ def main():
                 print(f"[worker] bad job payload; recorded error: {e}")
                 continue
 
-            # Count a fetch attempt before the HTTP request
             r.incr(K_FETCH)
 
             count_value = None
@@ -136,7 +133,6 @@ def main():
 
                 r.mset({K_LAST_STATUS: "error", K_LAST_TS: ts.isoformat(), K_LAST_ERROR: str(e)})
 
-            # Read current totals and insert a row
             fetch_total   = int(r.get(K_FETCH) or 0)
             success_total = int(r.get(K_OK) or 0)
             error_total   = int(r.get(K_ERR) or 0)

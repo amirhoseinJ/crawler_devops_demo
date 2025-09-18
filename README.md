@@ -89,7 +89,7 @@ curl http://localhost:8000/metrics
 ```
 ![Metrics Fetch](./readme_images/curl_metrics.png "Metrics Fetch")
 
-- Simulate worker failure and check health after timeout period:
+- Simulate worker failure (or similiary, scheduler failure) and check health after timeout period:
 ```
 sudo docker-compose stop worker
 ```
@@ -100,4 +100,22 @@ curl -i http://localhost:8000/healthz && echo
 
 ## 7. Terminate and Clean Up
 
+- Remove containers, volumes, images, volumes:
+```
+sudo docker-compose down -v --rmi local --remove-orphans
+
+```
+
+
 ## 8. Notes
+
+- Healthz endpoint returns 503 error if any of the conditions below matches (and 200 ok otherwise):
+  - Heartbeat of enqueue service (scheduler) is older than HEALTH_ENQUEUE_MAX_SECONDS.
+  - Worker's last job timestamp is older than HEALTH_WORKER_MAX_SECONDS.
+  - Last job's status is "error".
+- To clear Redis counters, run:
+```
+sudo docker-compose exec redis redis-cli DEL \
+  crawler:fetch_total crawler:success_total crawler:error_total \
+  crawler:last_status crawler:last_ts crawler:last_error crawler:last_enqueue_ts
+```
