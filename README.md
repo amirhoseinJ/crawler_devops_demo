@@ -3,13 +3,13 @@
 - Pushes crawl jobs.
 - Consumes jobs, writes metrics to Postgres, updates Redis counters.
 - `/healthz` returns 200/503 based on freshness and last job status.
-- `/metrics` exposes Prometheus counters.
+- `/metrics` exposes counters in Prometheus format.
 
 ## 1. Requirements
-- Docker, Docker-compose, curl and jq (for API testing).
+- Docker, Docker-compose, curl (for API testing).
 - On Ubuntu:
 ```bash
-sudo apt install docker docker-compose curl jq -y
+sudo apt install docker docker-compose curl -y
 ```
 
 ## 2. Clone the Repository
@@ -26,6 +26,10 @@ cd crawler_devops_demo
 ```
 cp .env.example .env
 ```
+```
+nano .env
+```
+
 - Table of editable variables:
 
 | Service | Variable | Default Value |
@@ -39,3 +43,61 @@ cp .env.example .env
 | Crawler (worker)  | CRAWL_URL     | https://www.varzesh3.com/     |
 | Crawler (worker)   | CRAWL_TARGET     | فوتبال     |
 | Crawler (worker)   | CRAWL_DELAY_SECONDS   | 5       |
+
+## 4. Build and Start
+- In the main repo directory, execute:
+```
+sudo docker-compose up -d --build
+```
+
+## 5. Check Logs
+- Docker-compose ps command:
+```
+sudo docker-compose ps
+```
+
+![Compose Logs](./readme_images/compose_logs.png "Compose Logs")
+
+- Worker logs:
+```
+sudo docker-compose logs worker
+```
+![Worker Logs](./readme_images/worker_logs.png "Worker Logs")
+
+- Enqueue logs:
+```
+sudo docker-compose logs enqueue
+```
+![Enqueue Logs](./readme_images/enqueue_logs.png "Enqueue Logs")
+
+- API logs:
+```
+sudo docker-compose logs api
+```
+![API Logs](./readme_images/api_logs.png "API Logs")
+
+## 6. Test the API
+- Check health:
+```
+curl -i http://localhost:8000/healthz
+```
+![Health Check](./readme_images/curl_healthz.png "Health Check")
+
+- Fetch metrics:
+```
+curl http://localhost:8000/metrics
+```
+![Metrics Fetch](./readme_images/curl_metrics.png "Metrics Fetch")
+
+- Simulate worker failure and check health after timeout period:
+```
+sudo docker-compose stop worker
+```
+```
+curl -i http://localhost:8000/healthz && echo
+```
+![Health Failure](./readme_images/health_fail.png "Health Failure")
+
+## 7. Terminate and Clean Up
+
+## 8. Notes
