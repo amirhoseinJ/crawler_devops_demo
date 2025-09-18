@@ -1,0 +1,6 @@
+psycopg[binary]
+redis
+requests
+beautifulsoup4
+fastapi
+uvicorn[standard]

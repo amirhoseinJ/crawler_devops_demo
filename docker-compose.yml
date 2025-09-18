@@ -1,0 +1,89 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-crawlerdb}
+      POSTGRES_USER: ${POSTGRES_USER:-crawleruser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  api:
+    build: .
+    command: >
+      uvicorn health_and_metrics:app
+      --host 0.0.0.0
+      --port 8000
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      HEALTH_ENQUEUE_MAX_SECONDS: ${HEALTH_ENQUEUE_MAX_SECONDS:-20}
+      HEALTH_WORKER_MAX_SECONDS: ${HEALTH_WORKER_MAX_SECONDS:-25}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: python -u worker.py
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DSN: postgresql://${POSTGRES_USER:-crawleruser}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-crawlerdb}
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  enqueue:
+    build: .
+    command: python -u enqueue.py
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CRAWL_URL: ${CRAWL_URL:-https://www.varzesh3.com/}
+      CRAWL_TARGET: ${CRAWL_TARGET:-فوتبال}
+      CRAWL_DELAY_SECONDS: ${CRAWL_DELAY_SECONDS:-5}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
